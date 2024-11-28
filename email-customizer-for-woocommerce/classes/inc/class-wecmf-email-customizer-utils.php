@@ -267,9 +267,9 @@ class WECMF_Utils {
 	public static function thwecmf_save_template_settings($settings, $new=false){
 		$result = false;
 		if($new){
-			$result = add_option(self::OPTION_KEY_TEMPLATE_SETTINGS, $settings);
+			$result = add_option(self::OPTION_KEY_TEMPLATE_SETTINGS, $settings, '', false);
 		}else{
-			$result = update_option(self::OPTION_KEY_TEMPLATE_SETTINGS, $settings);
+			$result = update_option(self::OPTION_KEY_TEMPLATE_SETTINGS, $settings, false);
 		}
 		return $result;
 	}
