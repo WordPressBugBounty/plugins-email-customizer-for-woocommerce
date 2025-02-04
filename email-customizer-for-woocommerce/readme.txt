@@ -4,7 +4,8 @@ Donate link: https://themehigh.com/
 Tags: Email Customizer, WooCommerce Email Customizer, WooCommerce Transactional Emails, Email Template, Email Designer
 Requires at least: 4.9
 Tested up to: 6.7
-Stable tag: 2.6.4
+Requires PHP: 5.6
+Stable tag: 2.6.5
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -221,6 +222,12 @@ Yes, you can edit all the templates provided in the Email Customizer plugin. For
 11. Send out test emails to confirm Email Layouts.
 
 == Changelog ==
+
+= 2.6.5 =
+* Added a warning when leaving the builder page without saving changes.
+* Added a confirmation prompt before resetting templates.
+* Added compatibility for the new **'Customer Failed Order'** email template.
+* Added WooCommerce 9.6 compatibility.
 
 = 2.6.4 =
 * Improved performance by avoiding unnecessary autoload of settings.

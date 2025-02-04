@@ -71,15 +71,16 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
 			'0'=>'admin-new-order',
 			'1'=>'admin-cancelled-order',
 			'2'=>'admin-failed-order',
-			'3'=>'customer-completed-order',
-			'4'=>'customer-on-hold-order',
-			'5'=>'customer-processing-order',
-			'6'=>'customer-refunded-order',
-			'7'=>'customer-partially-refunded-order',
-			'8'=>'customer-invoice',
-			'9'=>'customer-note',
-			'10'=>'customer-reset-password',
-			'11'=>'customer-new-account',
+			'3'=>'customer-failed-order',
+			'4'=>'customer-completed-order',
+			'5'=>'customer-on-hold-order',
+			'6'=>'customer-processing-order',
+			'7'=>'customer-refunded-order',
+			'8'=>'customer-partially-refunded-order',
+			'9'=>'customer-invoice',
+			'10'=>'customer-note',
+			'11'=>'customer-reset-password',
+			'12'=>'customer-new-account',
 		);
 		$this->map_msgs = array(
 			true	=> array(
@@ -287,7 +288,7 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
 		    							<button type="submit" class="thwecmf-template-action-links" formaction="<?php $this->get_admin_url(); ?>" name="i_edit_template">
 		    								<img src="<?php echo TH_WECMF_ASSETS_URL ?>images/template-edit.svg" class="template-edit-icon">
 		    							</button>
-		    							<button type="submit" class="thwecmf-template-action-links thwecmf-reset-link" name="reset_template">
+		    							<button type="submit" class="thwecmf-template-action-links thwecmf-reset-link" name="reset_template" onclick="return confirm('Template will be reset to initial condition. Do you want to proceed ?');">
 				    						<img src="<?php echo TH_WECMF_ASSETS_URL ?>images/template-reset.svg">
 										</button>
 									</div>

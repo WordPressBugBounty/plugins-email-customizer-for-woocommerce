@@ -411,6 +411,9 @@ class WECMF_Settings {
 				if( $wc_key === "WC_Email_Customer_Refunded_Order" ){
 					$woo_emails["WC_Email_Customer_Partially_Refunded_Order"] = "Refunded order (Partial)";
 				}
+				if( $wc_key === "WC_Email_Customer_Failed_Order" ){
+					$woo_emails["WC_Email_Customer_Failed_Order"] = "Customer failed order";
+				}
 			}
 		}
 		return $woo_emails;
