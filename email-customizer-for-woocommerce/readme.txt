@@ -1,11 +1,11 @@
 === Email Customizer for WooCommerce | Drag and Drop Email Templates Builder ===
 Contributors: ThemeHigh
 Donate link: https://themehigh.com/
-Tags: Email Customizer, WooCommerce Email Customizer, WooCommerce Transactional Emails, Email Template, Email Designer
+Tags: Email Customizer, WooCommerce Email Customizer, woocommerce emails, Email Template, Email Designer
 Requires at least: 4.9
-Tested up to: 6.7
+Tested up to: 6.8
 Requires PHP: 5.6
-Stable tag: 2.6.5
+Stable tag: 2.6.6
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -223,6 +223,10 @@ Yes, you can edit all the templates provided in the Email Customizer plugin. For
 
 == Changelog ==
 
+= 2.6.6 =
+* Added WooCommerce 10.0 compatibility.
+* Added WordPress 6.8 compatibility.
+
 = 2.6.5 =
 * Added a warning when leaving the builder page without saving changes.
 * Added a confirmation prompt before resetting templates.
@@ -374,3 +378,8 @@ Yes, you can edit all the templates provided in the Email Customizer plugin. For
 
 = 1.0.0 =
 * First Release
+
+== Upgrade Notice ==
+
+= 2.6.6 =
+* Compatibility fixes.
