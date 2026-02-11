@@ -1,3 +1,8 @@
+<?php
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html>
 <head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>
@@ -18,7 +23,7 @@
 <div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;">Hi <?php if(isset($order)){ echo esc_html($order->get_billing_first_name()); }elseif(isset($user_login)){ echo esc_html($user_login); } ?>,<br style="color: #636363; font-size: 14px;">
 </div>
 <div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;"><br style="color: #636363; font-size: 14px;"></div>
-<div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;">Just to let you know — we've received your order #<?php if(isset($order)){ echo $order->get_id(); } ?>, and it is now being processed:<br style="color: #636363; font-size: 14px;">
+<div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;"><?php esc_html_e("Just to let you know — we've received your order #",'email-customizer-for-woocommerce');?><?php if(isset($order)){ echo esc_html($order->get_id()); } ?>, and it is now being processed:<br style="color: #636363; font-size: 14px;">
 </div>
 </td>
 			</tr></tbody></table>

@@ -6,9 +6,9 @@
  * @category  Admin
  */
 
-use Pelago\Emogrifier\CssInliner;
-use Pelago\Emogrifier\HtmlProcessor\CssToAttributeConverter;
-use Pelago\Emogrifier\HtmlProcessor\HtmlPruner;
+// use Pelago\Emogrifier\CssInliner;
+// use Pelago\Emogrifier\HtmlProcessor\CssToAttributeConverter;
+// use Pelago\Emogrifier\HtmlProcessor\HtmlPruner;
 
 if(!defined('ABSPATH')){ exit; }
 
@@ -22,6 +22,7 @@ class WECMF_General_Template{
 	private $wecm_order_item = '';
 	private $temp_wrapper_styles;
 	private $wecmf_ot_helper;
+	
 
 	public function __construct() {
 		add_action('wp_ajax_thwecmf_template_actions', array($this,'save_template_content'));
@@ -84,12 +85,22 @@ class WECMF_General_Template{
     public function preview_template(){
 		$response = false;
 		check_ajax_referer( 'thwecmf_preview_order', 'security' );
-		$task = isset( $_POST['task'] ) ? sanitize_text_field( $_POST['task'] ) : false;
-		if( WECMF_Utils::wecm_valid() && WECMF_Utils::is_user_capable() ){
+		$task = isset( $_POST['task'] ) ? sanitize_text_field( wp_unslash( $_POST['task'] ) ) : false;
+		 // Get template name after nonce is verified
+    	$template_name = isset( $_POST['template_name'] ) ? sanitize_text_field( wp_unslash( $_POST['template_name'] ) ) : '';
+		if( WECMF_Utils::wecm_valid($template_name) && WECMF_Utils::is_user_capable() ){
 			if( $task === 'reset_preview' ){
 				$this->reset_preview();
 			}else if( $task === 'create_preview' ){
-				$response = $this->prepare_template();
+				$data = array(
+					'order_id' => isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : false,
+        			'email_status' => isset( $_POST['email_status'] ) ? sanitize_text_field( wp_unslash( $_POST['email_status'] ) ) : false,
+        			'content_html' => isset( $_POST['content_html'] ) ? wp_kses_post( wp_unslash( $_POST['content_html'] ) ) : false,
+					'template_name' => $template_name,
+       				'content_css' => isset( $_POST['content_css'] ) ? wp_kses_post( wp_unslash( $_POST['content_css'] ) ) : false,
+					'imgDimensions' => isset( $_POST['imgDimensions'] ) ? map_deep( wp_unslash( $_POST['imgDimensions'] ), 'sanitize_text_field' ) : array(),
+				);
+				$response = $this->prepare_template($data);
 			}
 		}
 		wp_send_json( $response );
@@ -113,24 +124,26 @@ class WECMF_General_Template{
          return $layout_css.$styles;
 	}
 
-	private function prepare_template(){
-		$order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : false;
-		$email = isset( $_POST['email_status'] ) ? sanitize_text_field( $_POST['email_status'] ) : false;
-		$content = isset( $_POST['content_html'] ) ? wp_kses_post( stripslashes( $_POST['content_html'] ) ) : false;
-		$css = isset( $_POST['content_css'] ) ? wp_kses_post( stripslashes( $_POST['content_css'] ) ) : false;
-		$css = $this->php8_comaptibiltiy_css( $css );
+	private function prepare_template($data){
+		$order_id = $data['order_id'];
+        $email = $data['email_status'];
+        $content = $data['content_html'];
+		$css = $data['content_css'];
+	 	$css = $this->php8_comaptibiltiy_css( $css );
+
 		if( $content && $css ){
-			$css = $this->prepare_images($css);
+			$css = $this->prepare_images($css,$data['imgDimensions']);
 			$content = $this->prepare_email_content_wrapper($content);
 			$content = $this->create_inline_styles( $content, $css );
 			$content = $this->insert_dynamic_data($content, true);
 			WECMF_Utils::create_preview();
-			$template_name = WECMF_Utils::prepare_template_name( sanitize_text_field( $_POST['template_name'] ) );
+			$template_name = WECMF_Utils::prepare_template_name( $data['template_name'] );
 			$template_name = $template_name == "customer_partial_refunded_order" ? "customer_partially_refunded_order" : $template_name;
 			$path_template = WECMF_Utils::preview_path($template_name);
 			return $this->save_template_file($content, $path_template);
 		}
 		return false;
+
 	}
 
 	/**
@@ -139,8 +152,12 @@ class WECMF_General_Template{
      * @param  string $css template styles
 	 * @return string $css template styles
      */
-	public function prepare_images($css){
-		$dimensions = isset( $_POST['imgDimensions'] ) ?  $_POST['imgDimensions'] : false; 
+	public function prepare_images($css, $dimensions=null){
+		// Fallback: If caller didn't pass dimensions, try to find them in POST (Backwards Compatibility)
+		if ( $dimensions === null ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$dimensions = isset( $_POST['imgDimensions'] ) ? map_deep( wp_unslash( $_POST['imgDimensions'] ), 'sanitize_text_field' ) : false;
+		}
 		if(is_array($dimensions) && !empty($dimensions)){
 			foreach ($dimensions as $id => $dimension) {
 				$block = isset($dimension['blockName']) ? $dimension['blockName'] : false;
@@ -188,7 +205,8 @@ class WECMF_General_Template{
 	public function reset_preview(){
 		$ajaxAction = false;
 		$deleted = false;
-		if( isset( $_POST["action"] ) && sanitize_text_field( $_POST["action"] ) === "thwecmf_reset_preview" ){
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if( isset( $_POST["action"] ) && sanitize_text_field(wp_unslash( $_POST["action"] )) === "thwecmf_reset_preview" ){
 			$ajaxAction = true;
 			check_ajax_referer( 'thwecmf_reset_preview', 'security' );
 		}
@@ -206,14 +224,24 @@ class WECMF_General_Template{
 	 * @return boolean action done or not
      */
 	public function save_template_content(){
+		check_ajax_referer( 'thwecmf_ajax_save', 'thwecmf_security' );
 		$response = '';
 		if( WECMF_Utils::is_valid_action() ){//Nonce, Capability
-			$template_display_name = isset($_POST['template_name']) ? sanitize_text_field($_POST['template_name']) : "";
-			if( WECMF_Utils::wecm_valid() ){
-				$render_data = isset($_POST['contents']) ? wp_kses_post( trim( stripslashes( $_POST['contents'] ) ) ) : false;
-				$render_css = isset($_POST['styles']) ? sanitize_textarea_field( stripslashes($_POST['styles'] ) ) : '';
+			$template_display_name = isset($_POST['template_name']) ? sanitize_text_field( wp_unslash( $_POST['template_name'] ) ) : "";
+			if( WECMF_Utils::wecm_valid($template_display_name) ){
+				// $render_data = isset($_POST['contents']) ? wp_kses_post( trim( stripslashes( $_POST['contents'] ) ) ) : false;
+				$render_data = isset($_POST['contents']) ? wp_kses(  wp_unslash( $_POST['contents']  ), WECMF_Utils::get_email_allowed_html() ) : false;
+				$render_css = isset($_POST['styles']) ? wp_strip_all_tags( wp_unslash( $_POST['styles'] ) ) : '';
 				$render_css = $this->php8_comaptibiltiy_css( $render_css );
-				$template_json = isset($_POST['template_tree']) ?  wp_kses_post( trim( stripslashes( $_POST['template_tree'] ) ) ) : ''; 
+				// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- JSON decoded and sanitized via sanitize_template_recursive()
+				$raw_data = isset($_POST['template_tree']) ? sanitize_text_field (wp_unslash($_POST['template_tree'])) : '';
+				$decoded = json_decode($raw_data, true);
+				if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
+					wp_send_json_error('Invalid template data');
+					exit;
+				}
+				$sanitized_data = $this->sanitize_template_recursive($decoded);
+				$template_json = wp_json_encode($sanitized_data);
 				if($render_data){
 					$save_meta = false;						
 					$template_name = WECMF_Utils::prepare_template_name($template_display_name);
@@ -230,6 +258,26 @@ class WECMF_General_Template{
 			wp_die();
 		}
 	}
+
+	/**
+	 * Recursively sanitize template data
+	 *
+	 * @param mixed $data The data to sanitize
+	 * @return mixed Sanitized data
+	 */
+	private function sanitize_template_recursive($data) {
+		if (is_array($data)) {
+			foreach ($data as $key => &$value) {
+				if ($key === 'textarea_content' && is_string($value)) {
+                	$value = wp_kses($value, WECMF_Utils::get_template_json_allowed_html());
+				} elseif (is_array($value)) {
+					$value = $this->sanitize_template_recursive($value);
+				}
+			}
+		}
+		return $data;
+	}
+
 
 	/**
      * Save the template settings to database
@@ -270,18 +318,29 @@ class WECMF_General_Template{
 	public function send_test_mail(){
 		$response = "failure";
 		$created = false;
-		if( isset( $_POST['template'] ) && WECMF_Utils::wecm_valid() && WECMF_Utils::is_user_capable() ){
+		// Add nonce verification
+    	check_ajax_referer( 'thwecmf_ajax_save', 'thwecmf_security' );
+    	// Get template name (it's being sent!)
+    	$template_name = isset( $_POST['template_name'] ) 
+        ? sanitize_text_field( wp_unslash( $_POST['template_name'] ) ) 
+        : '';
+		if( isset( $_POST['template'] ) && WECMF_Utils::wecm_valid($template_name) && WECMF_Utils::is_user_capable() ){
 			$order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : false;
-			$email = isset( $_POST['email_status'] ) ? sanitize_text_field( $_POST['email_status'] ) : false;
-			$content = isset( $_POST['template'] ) ? wp_kses_post( stripslashes( $_POST['template'] ) ) : false;
-			$css = isset( $_POST['styles'] ) ? wp_kses_post( stripslashes( $_POST['styles'] ) ) : false;
+			$email = isset( $_POST['email_status'] ) ? sanitize_text_field( wp_unslash( $_POST['email_status'] ) ) : false;
+			$content = isset( $_POST['template'] ) ? wp_kses_post( wp_unslash( $_POST['template'] ) ) : false;
+			$css = isset( $_POST['styles'] ) ? wp_kses_post( wp_unslash( $_POST['styles'] ) ) : false;
 			$css = $this->php8_comaptibiltiy_css( $css );
 			$css = $this->prepare_images($css);
 			$content = $this->prepare_email_content_wrapper($content);
 			$content = $this->create_inline_styles( $content, $css );
 			$content = $this->insert_dynamic_data($content, true);
 			WECMF_Utils::create_preview();
-			$template_name = WECMF_Utils::prepare_template_name( sanitize_text_field( $_POST['template_name'] ) );
+			// $template_name = WECMF_Utils::prepare_template_name( sanitize_text_field( $_POST['template_name'] ) );
+			$template_name = isset( $_POST['template_name'] )
+			? WECMF_Utils::prepare_template_name(
+				sanitize_text_field( wp_unslash( $_POST['template_name'] ) )
+			)
+			: '';
 			$template_name = $template_name == "customer_partial_refunded_order" ? "customer_partially_refunded_order" : $template_name;
 			$path_template = WECMF_Utils::preview_path($template_name);
 			
@@ -302,17 +361,24 @@ class WECMF_General_Template{
 	 * @return boolean $send_mail mail sent or not
 	 */	
 	public function send_mail( $message ){
-		$to = $this->get_from_address();
+		check_ajax_referer( 'thwecmf_ajax_save', 'thwecmf_security' );
+		$email_id = isset( $_POST['email_id'] ) ? sanitize_email( wp_unslash( $_POST['email_id'] ) ) : '';
+		$to = $this->get_from_address($email_id);
 		$subject = "[".get_bloginfo('name')."] Test Email";
 		$headers = $this->setup_test_mail_variables( $to );
+
+		// 3. Use a closure to force the filter to use our resolved $to address
+		$from_callback = function( $original_from ) use ( $to ) {
+			return $to ? $to : $original_from;
+		};
 		
-		add_filter( 'wp_mail_from', array( $this, 'get_from_address' ) );
+		add_filter( 'wp_mail_from', $from_callback);
 		add_filter( 'wp_mail_from_name', array( $this, 'get_from_name' ) );
 		add_filter( 'wp_mail_content_type', array( $this, 'get_content_type' ) );
 		
 		$send_mail = wp_mail( $to, $subject, $message, $headers );
 
-		remove_filter( 'wp_mail_from', array( $this, 'get_from_address' ) );
+		remove_filter( 'wp_mail_from', $from_callback);
 		remove_filter( 'wp_mail_from_name', array( $this, 'get_from_name' ) );
 		remove_filter( 'wp_mail_content_type', array( $this, 'get_content_type' ) );
 		return $send_mail;
@@ -332,9 +398,15 @@ class WECMF_General_Template{
 	 *
 	 * @return string from email
 	 */	
-	public function get_from_address() {
+	public function get_from_address($email_id='') {
+		// 1. If we have a passed parameter, use it immediately
+		if ( ! empty( $email_id ) ) {
+			return $email_id;
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
 		if( isset( $_POST['email_id'] ) && !empty( $_POST['email_id'] ) ){
-			return sanitize_email( $_POST['email_id'] );
+			//phpcs:ignore WordPress.Security.NonceVerification.Missing
+			return sanitize_email(wp_unslash( $_POST['email_id'] )); 
 		}
 	}
 
@@ -394,14 +466,25 @@ class WECMF_General_Template{
 	 * @return boolean $saved file created or not
      */
 	public function save_template_file($content, $path){
-		$saved = false;
-		$myfile_template = fopen($path, "w") or die("Unable to open file!");
-		if(false !== $myfile_template){
-			fwrite($myfile_template, $content);
-			fclose($myfile_template);
-			$saved = true; 
+		if ( ! function_exists( 'WP_Filesystem' ) ) {
+        	require_once ABSPATH . 'wp-admin/includes/file.php';
+    	}
+		WP_Filesystem();
+		global $wp_filesystem;
+		if ( ! $wp_filesystem ) {
+			return false;
 		}
-		return $saved;
+
+		$saved = false;
+		// Normalize path for safety
+    	$path = wp_normalize_path( $path );
+
+    // Write file using WP filesystem API
+		return $wp_filesystem->put_contents(
+			$path,
+			$content,
+			FS_CHMOD_FILE
+    );
 	}
 
 	/**
@@ -413,19 +496,34 @@ class WECMF_General_Template{
      */
 	public function create_inline_styles( $content, $css ) {
 		if( WECMF_Utils::thwecmf_woo_version_check('6.5.0') ){
-			$css_inliner_class = CssInliner::class;
+			 // WooCommerce 10.4+ uses vendor-prefixed namespace
+			if( WECMF_Utils::thwecmf_woo_version_check('10.4.0') ){
+				$css_inliner_class = '\Automattic\WooCommerce\EmailEditorVendor\Pelago\Emogrifier\CssInliner';
+				$html_pruner_class = '\Automattic\WooCommerce\EmailEditorVendor\Pelago\Emogrifier\HtmlProcessor\HtmlPruner';
+				$css_to_attr_class = '\Automattic\WooCommerce\EmailEditorVendor\Pelago\Emogrifier\HtmlProcessor\CssToAttributeConverter';
+			} else {
+				$css_inliner_class = '\Pelago\Emogrifier\CssInliner';
+				$html_pruner_class = '\Pelago\Emogrifier\HtmlProcessor\HtmlPruner';
+				$css_to_attr_class = '\Pelago\Emogrifier\HtmlProcessor\CssToAttributeConverter';
+			}
 			if ( class_exists( 'DOMDocument' ) && class_exists( $css_inliner_class ) ) {
 				try {
-					$css_inliner = CssInliner::fromHtml( $content )->inlineCss( $css );
+					// $css_inliner = CssInliner::fromHtml( $content )->inlineCss( $css );
+					$css_inliner = $css_inliner_class::fromHtml( $content )->inlineCss( $css );
 
 					do_action( 'woocommerce_emogrifier', $css_inliner, $this );
 
 					$dom_document = $css_inliner->getDomDocument();
 
-					HtmlPruner::fromDomDocument( $dom_document )->removeElementsWithDisplayNone();
-					$content = CssToAttributeConverter::fromDomDocument( $dom_document )
-						->convertCssToVisualAttributes()
-						->render();
+					// HtmlPruner::fromDomDocument( $dom_document )->removeElementsWithDisplayNone();
+					$html_pruner_class::fromDomDocument( $dom_document )->removeElementsWithDisplayNone();
+					// $content = CssToAttributeConverter::fromDomDocument( $dom_document )
+					// 	->convertCssToVisualAttributes()
+					// 	->render();
+					$content = $css_to_attr_class::fromDomDocument( $dom_document )
+                    ->convertCssToVisualAttributes()
+                    ->render();
+					// $content = htmlspecialchars_decode($content);
 					$content = htmlspecialchars_decode($content);
 				} catch ( Exception $e ) {
 					$logger = wc_get_logger();

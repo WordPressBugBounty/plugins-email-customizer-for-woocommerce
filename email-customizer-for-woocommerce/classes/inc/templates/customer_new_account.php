@@ -1,4 +1,8 @@
-<!DOCTYPE html>
+<?php
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+?><!DOCTYPE html>
 <html>
 <head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>
 <body><table border="0" cellpadding="0" cellspacing="0" height="100%" width="100%"><tr><td align="center" valign="top" style="background-color: #f7f7f7; padding: 70px 0;"><table cellpadding="0" cellspacing="0" border="0" width="600" id="tpf_t_builder" class="thwecmf-main-builder" style="max-width: 600px; width: 600px; margin: auto;"><tbody><tr>
@@ -19,7 +23,31 @@
 <div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;">Hi <?php if(isset($user_login)){ ?><?php echo '<strong>' . esc_html( $user_login ) . '</strong>' ?><?php } ?>,<br style="color: #636363; font-size: 14px;">
 </div>
 <div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;"><br style="color: #636363; font-size: 14px;"></div>
-<div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;">Thanks for creating an account on <?php echo esc_html( get_bloginfo() );?>. Your username is <?php if(isset($user_login)){ ?><?php echo '<strong>' . esc_html( $user_login ) . '</strong>' ?><?php } ?>. You can access your account area to view orders, change your password, and more at: <?php echo make_clickable( esc_url( wc_get_page_permalink( 'myaccount' ) ) ); ?><br style="color: #636363; font-size: 14px;">
+<div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;">
+    <?php esc_html_e( 'Thanks for creating an account on', 'email-customizer-for-woocommerce' ); ?>
+    <?php echo esc_html( get_bloginfo( 'name' ) ); ?>.
+
+    <?php esc_html_e( 'Your username is', 'email-customizer-for-woocommerce' ); ?>
+    <?php
+    if ( isset( $user_login ) ) {
+        echo '<strong>' . esc_html( $user_login ) . '</strong>';
+    }
+    ?>.
+
+    <?php esc_html_e(
+        'You can access your account area to view orders, change your password, and more at:',
+        'email-customizer-for-woocommerce'
+    ); ?>
+
+    <?php
+    echo wp_kses_post(
+        make_clickable(
+            esc_url( wc_get_page_permalink( 'myaccount' ) )
+        )
+    );
+    ?>
+
+    <br style="color: #636363; font-size: 14px;">
 </div>
 <div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;"><br style="color: #636363; font-size: 14px;"></div>
 <div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;">Your password has been automatically generated: <?php if ( 'yes' === get_option( 'woocommerce_registration_generate_password' ) && isset($password_generated) ) : ?><?php echo '<strong>' . esc_html( $user_pass ) . '</strong>' ?><?php endif; ?><br style="color: #636363; font-size: 14px;">

@@ -20,6 +20,7 @@ class WECMF_Utils {
 		'new_order',
 		'cancelled_order',
 		'failed_order',
+		'customer_cancelled_order',
 		'customer_failed_order',
 		'customer_on_hold_order',
 		'customer_processing_order',
@@ -127,13 +128,18 @@ class WECMF_Utils {
 		foreach( $files as $file ){ // iterate files
 			if( $file != '.' && $file != '..' ){ //scandir() contains two values '.' & '..' 
 				if( is_file( $dir.'/'.$file ) ){
-					unlink( $dir.'/'.$file ); // delete file		  	
+					wp_delete_file( $dir.'/'.$file ); // delete file		  	
 				}else if( is_dir( $dir.'/'.$file ) ){
 					self::delete_directory( $dir.'/'.$file );
 				}
 			}
 		}
-		return rmdir( $dir );
+		global $wp_filesystem;
+		if ( empty( $wp_filesystem ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+			WP_Filesystem();
+		}
+		return $wp_filesystem->rmdir( $dir );
 	}
 
     /**
@@ -340,6 +346,7 @@ class WECMF_Utils {
 		$email_statuses = array(
 			'admin-new-order' 					=> 'Admin New Order',
 			'admin-cancelled-order'				=> 'Admin Cancelled Order',
+			'customer-cancelled-order'			=> 'Customer Cancelled Order',
 			'admin-failed-order'				=> 'Admin Failed Order',
 			'customer-failed-order'				=> 'Customer Failed Order',
 			'customer-completed-order'			=> 'Customer Completed Order',
@@ -419,13 +426,16 @@ class WECMF_Utils {
      *
      * @return boolean valid template or not
      */
+
 	public static function wecm_valid( $name = '', $key=false ){
-		if( $key && !empty( $name ) ){
-			$name = str_replace("_", "-", $name);
-		}else{
-			$name = isset($_POST['template_name']) ? sanitize_text_field($_POST['template_name']) : "";
-			$name = $name === "Customer Partial Refunded Order" ? "Customer Partially Refunded Order" : $name;
-			$name = $name ? str_replace(" ", "-", strtolower($name)) : $name;
+		if(!empty($name)){
+			if($key){
+				$name = str_replace("_","-",$name);
+			}
+			else{
+				$name = $name === "Customer Partial Refunded Order" ? "Customer Partially Refunded Order" : $name;
+				$name = $name ? str_replace(" ", "-", strtolower($name)) : $name;
+			}
 		}
 		if( $name && array_key_exists( $name, self::email_statuses() ) ){
 			return true;
@@ -453,7 +463,8 @@ class WECMF_Utils {
      */
 	public static function is_template($name=''){
 		$template = !empty( $name ) ? $name : false;
-		$template = !$template && isset( $_POST['template_name'] ) ? sanitize_text_field( $_POST['template_name'] ) : $template;
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$template = !$template && isset( $_POST['template_name'] ) ? sanitize_text_field( wp_unslash( $_POST['template_name'] ) ) : $template;
 		$template = str_replace( " ", "_", $template);
 		if( $template && in_array( $template, self::THWECMF_EMAIL_INDEX ) ){
 			return true;
@@ -562,6 +573,7 @@ class WECMF_Utils {
 	 * @return boolean template edit action or not
 	 */
 	public static function edit_template( $page ){
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
 		if( $page == 'thwecmf_email_customizer' && isset( $_POST['i_edit_template'] ) ){
 			return true;
 		}
@@ -574,7 +586,8 @@ class WECMF_Utils {
 	 * @return boolean template file existence
 	 */
 	public static function get_status(){
-		$filename = isset( $_POST['i_template_name'] ) ? sanitize_text_field( $_POST['i_template_name'] ) : false;
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$filename = isset( $_POST['i_template_name'] ) ? sanitize_text_field(wp_unslash( $_POST['i_template_name'] ) ) : false;
 		if( $filename ){
 			$file = rtrim(THWECMF_CUSTOM_T_PATH, '/').'/'.$filename.'.php';
 			if( file_exists( $file ) ){
@@ -699,13 +712,182 @@ class WECMF_Utils {
 		return $capability;
 	}
 
-	public static function dump( $str, $margin="100" ){
-		?>
-		<pre style="margin-left:<?php echo esc_attr($margin); ?>px;">
-			<?php echo var_dump($str); ?>
-		</pre>
-		<?php
+	/**
+	 * Get allowed HTML tags and attributes for email template previews and sanitization
+	 *
+	 * @return array Allowed HTML elements with their attributes
+	 */
+	public static function get_email_allowed_html() {
+		// Start with WordPress 'post' context
+		$allowed_html = wp_kses_allowed_html( 'post' );
+
+		// Allow <style> for CSS
+		$allowed_html['style'] = array(
+			'type' => true,
+		);
+
+		// Fix for React Hooks - hooks.jsx uses data-block-name
+		$allowed_html['b'] = true;
+		$allowed_html['i'] = true;
+		$allowed_html['u'] = true;
+
+		$allowed_html['table']['data-block-name'] = true;
+		$allowed_html['table']['cellspacing']     = true;
+		$allowed_html['table']['cellpadding']     = true;
+		$allowed_html['table']['border']          = true;
+		$allowed_html['table']['align']           = true;
+		$allowed_html['table']['bgcolor']         = true;
+		$allowed_html['table']['width']           = true;
+		$allowed_html['table']['height']          = true;
+
+		// Table cells and rows
+		$allowed_html['table']['valign'] = true;
+		$allowed_html['td']['align']    = true;
+		$allowed_html['tr']['align']    = true;
+		$allowed_html['tr']['valign'] = true;
+		$allowed_html['p']['align']     = true;
+		$allowed_html['div']['align']   = true;
+		$allowed_html['h1']['align']    = true;
+		$allowed_html['h2']['align']    = true;
+		$allowed_html['h3']['align']    = true;
+		$allowed_html['td']['bgcolor']  = true;
+		$allowed_html['td']['width']    = true;
+		$allowed_html['td']['height']   = true;
+		$allowed_html['td']['valign']   = true;
+		$allowed_html['td']['colspan']  = true;
+		$allowed_html['td']['rowspan']  = true;
+		$allowed_html['td']['scope']    = true;
+		
+		$allowed_html['th']['scope']    = true;
+		$allowed_html['th']['colspan']  = true;
+		$allowed_html['th']['rowspan']  = true;
+		$allowed_html['th']['width']    = true;
+		$allowed_html['th']['align']    = true;
+		
+		$allowed_html['tr']['class']    = true;
+		$allowed_html['tr']['style']    = true;
+
+		// Table sections (WooCommerce uses these extensively)
+		$allowed_html['tbody'] = array();
+		$allowed_html['thead'] = array();
+		$allowed_html['tfoot'] = array();
+
+		// Time tag (for order dates)
+		$allowed_html['time'] = array(
+			'datetime' => true,
+			'title'    => true,
+		);
+
+		// Address tag (WooCommerce billing/shipping addresses)
+		$allowed_html['address'] = array(
+			'class' => true,
+			'style' => true,
+		);
+
+		// Headings
+		$allowed_html['h1']['style'] = true;
+		
+		$allowed_html['p']['class']   = true;
+		$allowed_html['p']['style']   = true;
+		// Images (WooCommerce uses inline styles heavily)
+		$allowed_html['img']['style']   = true;
+		$allowed_html['img']['loading'] = true; // lazy loading attribute
+		$allowed_html['img']['border']  = true;
+		// Links
+		$allowed_html['a']['rel']   = true;
+		$allowed_html['a']['style'] = true;
+
+		// Fix for Downloadable Products Table
+		$allowed_html['time'] = array(
+			'datetime' => true,
+			'title'    => true,
+		);
+		$allowed_html['h2']['class'] = true;
+		$allowed_html['h2']['style'] = true;
+		
+		$allowed_html['th'] = array(
+			'scope'   => true,
+			'style'   => true,
+			'class'   => true,
+			'colspan' => true,
+			'align'   => true,
+		);
+
+		// Fix for WooCommerce Hooks (Order Details, Images, etc.)
+		$allowed_html['div']['class'] = true;
+		$allowed_html['div']['style'] = true;
+		$allowed_html['div']['id']    = true;
+		
+		$allowed_html['span']['class'] = true;
+		$allowed_html['span']['style'] = true;
+		
+		$allowed_html['img']['style'] = true; // WC emails use inline styles on images
+		
+		$allowed_html['p']['class'] = true; // For "thwecmf-hook-code" class
+
+		return $allowed_html;
 	}
+
+
+	/**
+	 * Get allowed HTML tags for textarea_content fields in template JSON used in sanitize_template_recursive.
+	 * Only simple formatting elements — no img, script, iframe, table, etc.
+	 *
+	 * @return array Allowed HTML elements with their attributes
+	 */
+	public static function get_template_json_allowed_html() {
+		return array(
+			// Basic formatting
+			'b'      => array(),
+			'strong' => array(),
+			'i'      => array(),
+			'em'     => array(),
+			'u'      => array(),
+			's'      => array(),
+			'strike' => array(),
+			'del'    => array(),
+			'br'     => array(),
+			'hr'     => array(),
+
+			// Text wrapping
+			'p'    => array(
+				'style' => true,
+				'class' => true,
+				'align' => true,
+			),
+			'span' => array(
+				'style' => true,
+				'class' => true,
+			),
+			'div'  => array(
+				'style' => true,
+				'class' => true,
+			),
+
+			// Links
+			'a'    => array(
+				'href'  => true,
+				'style' => true,
+				'rel'   => true,
+			),
+
+			// Lists
+			'ul'   => array(),
+			'ol'   => array(),
+			'li'   => array(
+				'style' => true,
+			),
+
+			// Headings
+			'h1'   => array( 'style' => true ),
+			'h2'   => array( 'style' => true ),
+			'h3'   => array( 'style' => true ),
+			'h4'   => array( 'style' => true ),
+			'h5'   => array( 'style' => true ),
+			'h6'   => array( 'style' => true ),
+		);
+	}
+
 
 }
 endif;

@@ -1,3 +1,8 @@
+<?php
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html>
 <head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>
@@ -19,7 +24,20 @@
 <div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;">Hi <?php if(isset($order)){ echo esc_html($order->get_billing_first_name()); }elseif(isset($user_login)){ echo esc_html($user_login); } ?>,<br style="color: #636363; font-size: 14px;">
 </div>
 <div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;"><br style="color: #636363; font-size: 14px;"></div>
-<div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;">The following note has been added to your order: <?php if(isset($customer_note)){ echo "<blockquote>".wpautop( wptexturize( $customer_note ) )."</blockquote>"; } ?> As a reminder, here are your order details:<br style="color: #636363; font-size: 14px;">
+<div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;"><?php esc_html_e( 'The following note has been added to your order:', 'email-customizer-for-woocommerce' ); ?>
+<?php
+    if ( isset( $customer_note ) && $customer_note ) {
+        echo '<blockquote>' .
+            wp_kses_post(
+                wpautop(
+                    wptexturize( $customer_note )
+                )
+            ) .
+        '</blockquote>';
+    }
+    ?>
+    <?php esc_html_e( 'As a reminder, here are your order details:', 'email-customizer-for-woocommerce' ); ?>
+    <br style="color: #636363; font-size: 14px;">
 </div>
 </td>
 			</tr></tbody></table>

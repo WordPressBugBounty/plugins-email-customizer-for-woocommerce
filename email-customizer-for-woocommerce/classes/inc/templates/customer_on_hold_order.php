@@ -1,4 +1,8 @@
-<!DOCTYPE html>
+<?php
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+?><!DOCTYPE html>
 <html>
 <head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>
 <body><table border="0" cellpadding="0" cellspacing="0" height="100%" width="100%"><tr><td align="center" valign="top" style="background-color: #f7f7f7; padding: 70px 0;"><table cellpadding="0" cellspacing="0" border="0" width="600" id="tpf_t_builder" class="thwecmf-main-builder" style="max-width: 600px; width: 600px; margin: auto;"><tbody><tr>

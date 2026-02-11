@@ -3,14 +3,16 @@
  * Plugin Name: Email Customizer for WooCommerce
  * Description: Customize your WooCommerce emails using the drag and drop builder to match your brand style.
  * Author:      ThemeHigh
- * Version:     2.6.6
+ * Version:     2.6.8
  * Author URI:  https://www.themehigh.com
  * Plugin URI:  https://www.themehigh.com/product/woocommerce-email-customizer
- * Text Domain: woo-email-customizer
+ * Text Domain: email-customizer-for-woocommerce
  * Domain Path: /languages
+ * License: GPLv2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Requires Plugins: woocommerce
  * WC requires at least: 4.0.0
- * WC tested up to: 10.0
+ * WC tested up to: 10.5
  */
  
 if(!defined('ABSPATH')){ exit; }
@@ -58,9 +60,9 @@ if(is_woocommerce_active()) {
 				add_action('init', array($this, 'init'));
 			}		
 			public function init() {		
-				$this->load_plugin_textdomain();
+				// $this->load_plugin_textdomain();
 				
-				define('TH_WECMF_VERSION', '2.6.6');
+				define('TH_WECMF_VERSION', '2.6.8');
 				!defined('TH_WECMF_BASE_NAME') && define('TH_WECMF_BASE_NAME', plugin_basename( __FILE__ ));
 				!defined('TH_WECMF_PATH') && define('TH_WECMF_PATH', plugin_dir_path( __FILE__ ));
 				!defined('TH_WECMF_URL') && define('TH_WECMF_URL', plugins_url( '/', __FILE__ ));
@@ -71,9 +73,10 @@ if(is_woocommerce_active()) {
 				WECMF_Settings::instance();					
 			}
 
-			public function load_plugin_textdomain(){							
-				load_plugin_textdomain('woo-email-customizer', FALSE, dirname(plugin_basename( __FILE__ )) . '/languages/');
-			}
+			// public function load_plugin_textdomain(){	
+			// 	// phpcs:ignore PluginCheck.CodeAnalysis.DiscouragedFunctions.load_plugin_textdomain -- Required for non-WordPress.org distribution		
+   			// 	load_plugin_textdomain('email-customizer-for-woocommerce',false, dirname(plugin_basename(__FILE__)) . '/languages/');
+			// }
 		}	
 	}
 	new WECMF_Email_Customizer();

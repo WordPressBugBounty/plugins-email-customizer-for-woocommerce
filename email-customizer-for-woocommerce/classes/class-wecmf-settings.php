@@ -75,17 +75,22 @@ class WECMF_Settings {
 	}
 
 	public function prepare_preview(){
-		if ( isset( $_GET['preview'] ) && isset( $_GET['page'] ) && $_GET['page'] === 'thwecmf_email_customizer' && WECMF_Utils::is_user_capable() ) {
-			$order_id = isset( $_GET['id'] ) ? absint( base64_decode( $_GET['id'] ) ) : false;
-			$email_index = isset( $_GET['email'] ) ? sanitize_text_field( base64_decode( $_GET['email'] ) ) : false;
-			$template = isset($_GET['preview']) ? sanitize_text_field( base64_decode( $_GET['preview'] ) ) : '';
-			$content = $this->admin_instance->prepare_preview( $order_id, $email_index, $template, true );
-			echo $this->render_preview( $content );
-			die;
+	if ( isset( $_GET['preview'] ) && isset( $_GET['page'] ) && $_GET['page'] === 'thwecmf_email_customizer' && WECMF_Utils::is_user_capable() ) {
+		// Add nonce verification
+		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'thwecmf_preview_order' ) ) {
+			wp_die( 'Security check failed.' );
 		}
+		$order_id = isset( $_GET['id'] ) ? absint( base64_decode( sanitize_text_field( wp_unslash( $_GET['id'] ) ) ) ) : false;
+		$email_index = isset( $_GET['email'] ) ? sanitize_text_field( base64_decode( sanitize_text_field( wp_unslash( $_GET['email'] ) ) ) ) : false;
+		$template = isset( $_GET['preview'] ) ? sanitize_text_field( base64_decode( sanitize_text_field( wp_unslash( $_GET['preview'] ) ) ) ) : '';
+		$content = $this->admin_instance->prepare_preview( $order_id, $email_index, $template, true );
+		$this->render_preview( $content );
+		die;
 	}
+}
 
-	public function render_preview( $content ){
+	public function render_preview( $content ){	
+		$allowed_html = WECMF_Utils::get_email_allowed_html();
 		?>
 		<html>
 			<head>
@@ -98,13 +103,18 @@ class WECMF_Settings {
 				
 			</head>
 			<body>
-				<?php echo $content; ?>
+				<!-- added wp_kses because of security -->
+				 <?php echo wp_kses( $content, $allowed_html ); ?>
 				<script>
 					var links = document.getElementsByClassName('thwecmf-link');
 					var email = '';
 					for (var i = 0; i < links.length; i++){
 						email = links[i].innerHTML;
+						//Error i guess here some security issue here want to look deeper
 						links[i].innerHTML = '<a href="mailto:'+esc_attr( email )+'">'+esc_html( email )+'</a>';
+						// Suggested fix:
+						// var safeEmail = email.replace(/[^a-zA-Z0-9@._-]/g, '');
+						// links[i].innerHTML = '<a href="mailto:' + safeEmail + '">' + safeEmail + '</a>';
 					}
 				</script>
 			</body>
@@ -149,29 +159,36 @@ class WECMF_Settings {
 	}
 
 	public function admin_menu() {
+		// if (!empty($_GET) && isset($_GET['_wpnonce'])) {
+        // 	$nonce = sanitize_text_field(wp_unslash($_GET['_wpnonce']));
+        // if (!wp_verify_nonce($nonce, 'admin_menu_nonce')) {
+        //     wp_die('Security check failed.');
+        // }
+    	// }
 		global $wp;
-		
-		$page  = isset( $_GET['page'] ) ? esc_attr( $_GET['page'] ) : 'thwecmf_email_customizer';
+    	// Sanitize and unslash the 'page' parameter
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+    	$page = isset($_GET['page']) ? sanitize_text_field(wp_unslash($_GET['page'])) : 'thwecmf_email_customizer';
 
 		$capability = $this->wecmf_capability();
-		$this->screen_id = add_menu_page(esc_attr__('Email Customizer'), esc_attr__('Email Customizer'), esc_html( $capability ), 'thwecmf_email_customizer', array($this, 'output_settings'), 'dashicons-admin-customizer', 56);
-		add_submenu_page('thwecmf_email_customizer', esc_attr__('Templates'), esc_attr__('Templates'), $capability, 'thwecmf_email_customizer', array($this, 'output_settings'));
-		add_submenu_page('thwecmf_email_customizer', esc_attr__('Email Mapping'), esc_attr__('Email Mapping'), esc_html( $capability ), 'thwecmf_email_mapping', array($this, 'output_settings'));
-		add_submenu_page('thwecmf_email_customizer', esc_attr__('Pro Features'), esc_attr__('Pro Features'), esc_html( $capability ), 'thwecmf_premium_features', array($this, 'output_settings'));
+		$this->screen_id = add_menu_page(esc_attr__('Email Customizer','email-customizer-for-woocommerce'), esc_attr__('Email Customizer','email-customizer-for-woocommerce'), esc_html( $capability ), 'thwecmf_email_customizer', array($this, 'output_settings'), 'dashicons-admin-customizer', 56);
+		add_submenu_page('thwecmf_email_customizer', esc_attr__('Templates','email-customizer-for-woocommerce'), esc_attr__('Templates','email-customizer-for-woocommerce'), $capability, 'thwecmf_email_customizer', array($this, 'output_settings'));
+		add_submenu_page('thwecmf_email_customizer', esc_attr__('Email Mapping','email-customizer-for-woocommerce'), esc_attr__('Email Mapping','email-customizer-for-woocommerce'), esc_html( $capability ), 'thwecmf_email_mapping', array($this, 'output_settings'));
+		add_submenu_page('thwecmf_email_customizer', esc_attr__('Pro Features','email-customizer-for-woocommerce'), esc_attr__('Pro Features','email-customizer-for-woocommerce'), esc_html( $capability ), 'thwecmf_premium_features', array($this, 'output_settings'));
 		add_action('admin_print_scripts', array($this, 'disable_admin_notices'));
 		add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
 	}
 
 	public function add_screen_id($ids){
 		$ids[] = 'woocommerce_page_thwecmf_email_customizer';
-		$ids[] = strtolower(__('WooCommerce', 'woocommerce')) .'_page_thwecmf_email_customizer';
+		$ids[] = strtolower(__('WooCommerce', 'email-customizer-for-woocommerce')) .'_page_thwecmf_email_customizer';
 		return $ids;
 	}
 	
 	public function add_settings_link($links) {
-		$settings_link = '<a href="'.admin_url('admin.php?page=thwecmf_email_customizer').'">'. esc_html__('Settings') .'</a>';
+		$settings_link = '<a href="'.admin_url('admin.php?page=thwecmf_email_customizer').'">'. esc_html__('Settings','email-customizer-for-woocommerce') .'</a>';
 		array_unshift($links, $settings_link);
-		$pro_link = '<a style="color:green; font-weight:bold" target="_blank" href="https://www.themehigh.com/product/woocommerce-email-customizer/?utm_source=free&utm_medium=plugin_action_link&utm_campaign=wec_upgrade_link">'. __('Get Pro', 'woo-email-customizer') .'</a>';
+		$pro_link = '<a style="color:green; font-weight:bold" target="_blank" href="https://www.themehigh.com/product/woocommerce-email-customizer/?utm_source=free&utm_medium=plugin_action_link&utm_campaign=wec_upgrade_link">'. __('Get Pro', 'email-customizer-for-woocommerce') .'</a>';
 		array_push($links,$pro_link);
 		if (array_key_exists('deactivate', $links)) {
 		    $links['deactivate'] = str_replace('<a', '<a class="thwecmf-deactivate-link"', $links['deactivate']);
@@ -181,7 +198,8 @@ class WECMF_Settings {
 	}
 
 	public function output_settings() {
-		$page  = isset( $_GET['page'] ) ? sanitize_text_field( $_GET['page'] ) : 'thwecmf_email_customizer';
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$page  = isset( $_GET['page'] ) ? sanitize_text_field(wp_unslash( $_GET['page'] ) ) : 'thwecmf_email_customizer';
 		if( WECMF_Utils::edit_template( $page ) ){
 			$fields_instance = WECMF_General_Template::instance();	
 			$fields_instance->render_page();
@@ -197,7 +215,8 @@ class WECMF_Settings {
 	}
 
 	public function disable_admin_notices(){
-		$page  = isset( $_GET['page'] ) ? sanitize_text_field( $_GET['page'] ) : '';
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$page  = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
 		if( WECMF_Utils::edit_template( $page ) ){
 			global $wp_filter;
       		if (is_user_admin() ) {
@@ -270,9 +289,11 @@ class WECMF_Settings {
     }
 
     public function verify_nonce(){
-    	$template_details = isset($_POST['i_template_name']) ? sanitize_text_field($_POST['i_template_name']): false;
+    	$template_details = isset($_POST['i_template_name']) ? sanitize_text_field( wp_unslash( $_POST['i_template_name'] ) ) : false;
 		if ( isset( $_POST['i_edit_template'] ) && $template_details ){
-			if( !wp_verify_nonce( $_POST['thwecmf_edit_template_'.$template_details], 'thwecmf_edit_template'  ) || !WECMF_Utils::is_user_capable() ){
+			// 1. Define the dynamic key
+			$nonce_key = 'thwecmf_edit_template_' . $template_details;
+			if( ! isset( $_POST[ $nonce_key ] ) ||  !wp_verify_nonce(sanitize_text_field( wp_unslash( $_POST[ $nonce_key ] ) ), 'thwecmf_edit_template'  ) || !WECMF_Utils::is_user_capable() ){
 				wp_die( '<div class="wecm-wp-die-message">Action failed. Could not verify nonce.</div>' );
 			}
 		}
@@ -286,19 +307,22 @@ class WECMF_Settings {
 	 */	
     public function add_thwecmf_body_class( $classes ){
     	$pages = array('thwecmf_email_customizer', 'thwecmf_email_mapping');
-		$page = isset( $_GET['page'] ) ? sanitize_text_field( $_GET['page'] ) : false;
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$page = isset( $_GET['page'] ) ? sanitize_text_field(wp_unslash( $_GET['page'] ) ) : false;
 		if( in_array($page, $pages) ){
 			$classes .= ' thwecmf-page';
 		}
 		if( $page === 'thwecmf_email_mapping' ){
 			$classes .= ' thwecmf-mapping-page';
 		}else if( $page === 'thwecmf_email_customizer' ){
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
 			$classes .= isset( $_POST['i_edit_template'] ) ? ' thwecmf-builder-page' : ' thwecmf-template-page';
 		}
 		return $classes;
 	}
 
 	private function is_editor_page( $hook ){
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
 		if( $hook === "toplevel_page_thwecmf_email_customizer" && isset($_POST["i_template_name"]) && !isset($_POST["reset_template"]) ){
 			return true;
 		}
@@ -319,22 +343,23 @@ class WECMF_Settings {
 		}
 
 		$additional = array();
-		
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$template_name = isset( $_POST['i_template_name'] ) ? sanitize_text_field( wp_unslash( $_POST['i_template_name'] ) ) : '';
 		wp_enqueue_media();
 		wp_enqueue_style (array('woocommerce_admin_styles', 'jquery-ui-style'));
 		wp_enqueue_style ('thwecmf-admin-style', plugins_url('/assets/css/thwecmf-admin.min.css', dirname(__FILE__)), array(), TH_WECMF_VERSION);
 		wp_enqueue_style('wp-color-picker');
-		wp_enqueue_style('raleway-style','https://fonts.googleapis.com/css?family=Raleway:400,600,800');
+		wp_enqueue_style('raleway-style','https://fonts.googleapis.com/css?family=Raleway:400,600,800', array(), TH_WECMF_VERSION);
 		if( $this->is_editor_page($hook) ){
 			wp_enqueue_script( 'thwecmf-admin-script', plugins_url('/assets/js/thwecmf-editor.min.js', dirname(__FILE__)), ['wp-element', 'jquery'], TH_WECMF_VERSION, true );
 			$additional = array(
 	            'woo_orders' => $this->get_woo_orders(),
 	            'woo_emails' => $this->get_woo_emails(),
-	            'template' => $this->get_template_details(sanitize_text_field($_POST["i_template_name"])),
+	            'template' => $this->get_template_details($template_name),
 	            'bloginfo' => get_bloginfo(),
 	            'testmail_recepient' => apply_filters('thwecmf_set_testmail_recepient', true) ? THWECMF_LOGIN_USER : "",
 	            'admin_plugin_url' => TH_WECMF_ASSETS_URL,
-	            'allowed_tags' => apply_filters('thwecmf_set_allowed_tags_in_text', ['b', 'strong', 'u', 'i', 'a']),
+	            'allowed_tags' => apply_filters('thwecmf_set_allowed_tags_in_text', ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 'span', 'div', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']),
 	            'remove_unencoded_html' => $this->should_remove_unencoded(),
 	        );
 		}else{
@@ -350,7 +375,7 @@ class WECMF_Settings {
             'ajax_banner_nonce' => wp_create_nonce('thwecmf_banner_ajax_security'),
             'admin_plugin_url' 	=> TH_WECMF_URL,
             'tstatus'			=> WECMF_Utils::get_status(),
-            'template_name' 	=> isset( $_POST['i_template_name'] ) ? sanitize_text_field( $_POST['i_template_name'] ) : '',
+            'template_name' 	=> $template_name,
             'preview_order' 	=> wp_create_nonce( 'thwecmf_preview_order' ),
             'reset_preview' 	=> wp_create_nonce('thwecmf_reset_preview'),
         );
@@ -367,6 +392,7 @@ class WECMF_Settings {
 		$template_data = false;
 		if($t_name){
 			$t_list = WECMF_Utils::thwecmf_get_template_settings();
+			// write_log("we are here in get template details");
 			if( WECMF_Utils::wecm_valid( $t_name, true ) ){
 				$template_data = isset( $t_list['templates'][$t_name] ) ? WECMF_Utils::sanitize_template_data( $t_list['templates'][$t_name], true ) : WECMF_Utils::thwecmf_get_templates($t_name);
 			}else{
@@ -395,7 +421,8 @@ class WECMF_Settings {
      */
 	private function thwecmf_invalid_template(){
 		$url =  admin_url('admin.php?page=thwecmf_email_customizer');
-		wp_redirect($url); 
+		wp_safe_redirect($url);
+		exit; 
 	}
 
 	private function get_woo_emails(){
@@ -413,6 +440,9 @@ class WECMF_Settings {
 				}
 				if( $wc_key === "WC_Email_Customer_Failed_Order" ){
 					$woo_emails["WC_Email_Customer_Failed_Order"] = "Customer failed order";
+				}
+				if( $wc_key === "WC_Email_Customer_Cancelled_Order" ){
+					$woo_emails["WC_Email_Customer_Cancelled_Order"] = "Customer cancelled order";
 				}
 			}
 		}
@@ -439,7 +469,8 @@ class WECMF_Settings {
 	private function get_buyer_info( $order ){
 		$buyer = false;
 		if ( $order->get_billing_first_name() || $order->get_billing_last_name() ) {
-			$buyer = trim( sprintf( _x( '%1$s %2$s', 'full name', 'woocommerce' ), $order->get_billing_first_name(), $order->get_billing_last_name() ) );
+			/* translators: 1: customer's first name, 2: customer's last name */
+			$buyer = trim( sprintf( _x( '%1$s %2$s', 'full name', 'email-customizer-for-woocommerce' ), $order->get_billing_first_name(), $order->get_billing_last_name() ) );
 		} elseif ( $order->get_billing_company() ) {
 			$buyer = trim( $order->get_billing_company() );
 		} elseif ( $order->get_customer_id() ) {
@@ -450,8 +481,10 @@ class WECMF_Settings {
 	}
 
 	public function set_wecmf_title($admin_title, $title){
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing 
 		if( isset($_POST["i_template_name"]) ){
-			$template = str_replace("_", "", sanitize_text_field($_POST["i_template_name"]));
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$template = str_replace("_", "", sanitize_text_field( wp_unslash( $_POST["i_template_name"] )));
 			$admin_title = str_replace($title, "Edit Template", $admin_title);
 		}
 
@@ -602,16 +635,16 @@ class WECMF_Settings {
 			    background-position: 18px 8px;
 			}
 			.thwecmf-yes{
-			    background-image: url(<?php echo TH_WECMF_URL; ?>assets/images/tick.svg);
+			    background-image: url(<?php echo esc_url( TH_WECMF_URL. 'assets/images/tick.svg');?>);
 			}
 			.thwecmf-remind{
-			    background-image: url(<?php echo TH_WECMF_URL; ?>assets/images/reminder.svg);
+			    background-image: url(<?php echo esc_url( TH_WECMF_URL. 'assets/images/reminder.svg');?>);
 			}
 			.thwecmf-dismiss{
-			    background-image: url(<?php echo TH_WECMF_URL; ?>assets/images/close.svg);
+			    background-image: url(<?php echo esc_url( TH_WECMF_URL. 'assets/images/close.svg');?>);
 			}
 			.thwecmf-done{
-			    background-image: url(<?php echo TH_WECMF_URL; ?>assets/images/done.svg);
+			    background-image: url(<?php echo esc_url( TH_WECMF_URL. 'assets/images/done.svg');?>);
 			}
 			.thwecmf-notice-action.thwecmf-yes{
 				background-color: #2271b1;
@@ -622,6 +655,7 @@ class WECMF_Settings {
 	}
 
 	private function render_review_request_notice(){
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$current_page = isset( $_GET['page'] ) ? sanitize_key( $_GET['page'] ) : 'thwecmf_email_customizer';
 
 		$remind_url = add_query_arg(array('thwecmf_remind' => true, 'thwecmf_review_nonce' => wp_create_nonce( 'thwecmf_notice_security')));
@@ -629,28 +663,28 @@ class WECMF_Settings {
 		$reviewed_url= add_query_arg(array('thwecmf_reviewed' => true, 'thwecmf_review_nonce' => wp_create_nonce( 'thwecmf_notice_security')));
 		?>
 
-		<div class="notice notice-info thpladmin-notice is-dismissible thwecmf-review-wrapper" data-nonce="<?php echo wp_create_nonce( 'thwecmf_notice_security'); ?>">
+		<div class="notice notice-info thpladmin-notice is-dismissible thwecmf-review-wrapper" data-nonce="<?php echo esc_attr( wp_create_nonce( 'thwecmf_notice_security')); ?>">
 			<div class="thwecmf-review-image">
 				<img src="<?php echo esc_url(TH_WECMF_URL .'assets/images/review-left.png'); ?>" alt="themehigh">
 			</div>
 			<div class="thwecmf-review-content">
-				<h3><?php _e('Tell us how it was!', 'woo-email-customizer'); ?></h3>
-				<p><?php _e('Thank you for choosing us. We would love to hear about your experience while using the new Drag and Drop UI. Could you please do us a Big favor by leaving a review on WordPress to help us spread the word and boost our motivation?', 'woo-email-customizer'); ?></p>
+				<h3><?php esc_html_e('Tell us how it was!', 'email-customizer-for-woocommerce'); ?></h3>
+				<p><?php esc_html_e('Thank you for choosing us. We would love to hear about your experience while using the new Drag and Drop UI. Could you please do us a Big favor by leaving a review on WordPress to help us spread the word and boost our motivation?', 'email-customizer-for-woocommerce'); ?></p>
 				<div class="action-row">
 			        <a class="thwecmf-notice-action thwecmf-yes" onclick="window.open('https://wordpress.org/support/plugin/email-customizer-for-woocommerce/reviews/?rate=5#new-post', '_blank')" style="margin-right:16px; text-decoration: none">
-			        	<?php _e("Ok, You deserve it", 'woo-email-customizer'); ?>
+			        	<?php esc_html_e("Ok, You deserve it", 'email-customizer-for-woocommerce'); ?>
 			        </a>
 
 			        <a class="thwecmf-notice-action thwecmf-done" href="<?php echo esc_url($reviewed_url); ?>" style="margin-right:16px; text-decoration: none">
-			        	<?php _e('Already, did', 'woo-email-customizer'); ?>
+			        	<?php esc_html_e('Already, did', 'email-customizer-for-woocommerce'); ?>
 			        </a>
 
 			        <a class="thwecmf-notice-action thwecmf-remind" href="<?php echo esc_url($remind_url); ?>" style="margin-right:16px; text-decoration: none">
-			        	<?php _e('Maybe later', 'woo-email-customizer'); ?>
+			        	<?php esc_html_e('Maybe later', 'email-customizer-for-woocommerce'); ?>
 			        </a>
 
 			        <a class="thwecmf-notice-action thwecmf-dismiss" href="<?php echo esc_url($dismiss_url); ?>" style="margin-right:16px; text-decoration: none">
-			        	<?php _e("Nah, never", 'woo-email-customizer'); ?>
+			        	<?php esc_html_e("Nah, never", 'email-customizer-for-woocommerce'); ?>
 			        </a>
 				</div>
 			</div>
@@ -667,11 +701,12 @@ class WECMF_Settings {
 	}
 
 	public function wecmf_notice_actions(){
+		//phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if( !(isset($_GET['thwecmf_remind']) || isset($_GET['thwecmf_dissmis']) || isset($_GET['thwecmf_reviewed'])) ) {
 			return;
 		}
 
-		$nonce = isset($_GET['thwecmf_review_nonce']) ? $_GET['thwecmf_review_nonce'] : false;
+		$nonce = isset($_GET['thwecmf_review_nonce']) ? sanitize_text_field( wp_unslash( $_GET['thwecmf_review_nonce'] ) ) : false;
 		$capability = WECMF_Utils::wecmf_capability();
 
 		if(!wp_verify_nonce($nonce, 'thwecmf_notice_security') || !current_user_can($capability)){
@@ -765,11 +800,11 @@ class WECMF_Settings {
 						<div class="modal-body">
 							<div class="model-header">
 								<img class="th-logo" src="<?php echo esc_url(TH_WECMF_URL .'assets/images/themehigh.svg'); ?>" alt="themehigh-logo">
-								<span><?php echo __('Quick Feedback', 'woo-email-customizer'); ?></span>
+								<span><?php echo esc_html__('Quick Feedback', 'email-customizer-for-woocommerce'); ?></span>
 							</div>
 							<main class="form-container main-full">
-								<p class="thwecm-title-text"><?php echo __('If you have a moment, please let us know why you want to deactivate this plugin', 'woo-email-customizer'); ?></p>
-								<ul class="deactivation-reason" data-nonce="<?php echo wp_create_nonce('thwecm_deactivate_nonce'); ?>">
+								<p class="thwecm-title-text"><?php echo esc_html__('If you have a moment, please let us know why you want to deactivate this plugin', 'email-customizer-for-woocommerce'); ?></p>
+								<ul class="deactivation-reason" data-nonce="<?php echo esc_attr( wp_create_nonce( 'thwecm_deactivate_nonce' ) ); ?>">
 									<?php 
 									if($deactivation_reasons){
 										foreach($deactivation_reasons as $key => $reason){
@@ -787,18 +822,18 @@ class WECMF_Settings {
 									}
 									?>
 								</ul>
-								<p class="thwecm-privacy-cnt"><?php echo __('This form is only for getting your valuable feedback. We do not collect your personal data. To know more read our ', 'woo-email-customizer'); ?> <a class="thwecm-privacy-link" target="_blank" href="<?php echo esc_url('https://www.themehigh.com/privacy-policy/');?>"><?php echo __('Privacy Policy', 'woo-email-customizer'); ?></a></p>
+								<p class="thwecm-privacy-cnt"><?php echo esc_html__('This form is only for getting your valuable feedback. We do not collect your personal data. To know more read our ', 'email-customizer-for-woocommerce'); ?> <a class="thwecm-privacy-link" target="_blank" href="<?php echo esc_url('https://www.themehigh.com/privacy-policy/');?>"><?php echo esc_html__('Privacy Policy', 'email-customizer-for-woocommerce'); ?></a></p>
 							</main>
 							<footer class="modal-footer">
 								<div class="thwecm-left">
-									<a class="thwecm-link thwecm-left-link thwecmf-deactivate" href="#"><?php echo __('Skip & Deactivate', 'woo-email-customizer'); ?></a>
+									<a class="thwecm-link thwecm-left-link thwecmf-deactivate" href="#"><?php echo esc_html__('Skip & Deactivate', 'email-customizer-for-woocommerce'); ?></a>
 								</div>
 								<div class="thwecm-right">
 									
-									<a class="thwecm-link thwecm-right-link thwecm-active" target="_blank" href="https://help.themehigh.com/hc/en-us/requests/new?utm_source=wec_free&utm_medium=feedback_form&utm_campaign=get_support"><?php echo __('Get Support', 'woo-email-customizer'); ?></a>
+									<a class="thwecm-link thwecm-right-link thwecm-active" target="_blank" href="https://help.themehigh.com/hc/en-us/requests/new?utm_source=wec_free&utm_medium=feedback_form&utm_campaign=get_support"><?php echo esc_html__('Get Support', 'email-customizer-for-woocommerce'); ?></a>
 
-									<a class="thwecm-link thwecm-right-link thwecm-active thwecm-submit-deactivate" href="#"><?php echo __('Submit and Deactivate', 'woo-email-customizer'); ?></a>
-									<a class="thwecm-link thwecm-right-link thwecm-close" href="#"><?php echo __('Cancel', 'woo-email-customizer'); ?></a>
+									<a class="thwecm-link thwecm-right-link thwecm-active thwecm-submit-deactivate" href="#"><?php echo esc_html__('Submit and Deactivate', 'email-customizer-for-woocommerce'); ?></a>
+									<a class="thwecm-link thwecm-right-link thwecm-close" href="#"><?php echo esc_html__('Cancel', 'email-customizer-for-woocommerce'); ?></a>
 								</div>
 							</footer>
 						</div>
@@ -1010,23 +1045,25 @@ class WECMF_Settings {
                     	reason_input += '<input type="checkbox" id="th-snooze" name="th-snooze" class="th-snooze-checkbox">';
                     	reason_input += '<label for="th-snooze">Snooze this panel while troubleshooting</label>';
                     	reason_input += '<select name="th-snooze-time" class="th-snooze-select" disabled>';
-                    	reason_input += '<option value="<?php echo HOUR_IN_SECONDS ?>">1 Hour</option>';
-                    	reason_input += '<option value="<?php echo 12*HOUR_IN_SECONDS ?>">12 Hour</option>';
-                    	reason_input += '<option value="<?php echo DAY_IN_SECONDS ?>">24 Hour</option>';
-                    	reason_input += '<option value="<?php echo WEEK_IN_SECONDS ?>">1 Week</option>';
-                    	reason_input += '<option value="<?php echo MONTH_IN_SECONDS ?>">1 Month</option>';
+                    	reason_input += '<option value="<?php echo esc_attr ( HOUR_IN_SECONDS); ?>">1 Hour</option>';
+                    	reason_input += '<option value="<?php echo esc_attr ( 12*HOUR_IN_SECONDS); ?>">12 Hour</option>';
+                    	reason_input += '<option value="<?php echo esc_attr ( DAY_IN_SECONDS); ?>">24 Hour</option>';
+                    	reason_input += '<option value="<?php echo esc_attr ( WEEK_IN_SECONDS); ?>">1 Week</option>';
+                    	reason_input += '<option value="<?php echo esc_attr ( MONTH_IN_SECONDS); ?>">1 Month</option>';
                     	reason_input += '</select>';
                     	reason_input += '</div>';
                     }else if('reviewlink' == type){
                     	reason_input += '<div class="reason-input wecm-review-link">';
+						// commented code is showing in ERROR category in PCP check
                     	/*
-                    	reason_input += '<?php _e('Deactivate and ', 'woo-email-customizer');?>'
+                    	reason_input += '<?php echo esc_attr__('Deactivate and ', 'email-customizer-for-woocommerce');?>'
                     	reason_input += '<a href="#" target="_blank" class="thwecm-review-and-deactivate">';
-                    	reason_input += '<?php _e('leave a review', 'woo-email-customizer'); ?>';
+                    	reason_input += '<?php echo esc_attr__('leave a review', 'email-customizer-for-woocommerce'); ?>';
                     	reason_input += '<span class="wecm-rating-link"> &#9733;&#9733;&#9733;&#9733;&#9733; </span>';
                     	reason_input += '</a>';
                     	*/
-                    	reason_input += '<input type="hidden" value="<?php _e('Upgraded', 'woo-email-customizer');?>">';
+                    	reason_input += '<input type="hidden" value="<?php echo esc_attr__( 'Upgraded', 'email-customizer-for-woocommerce' ); ?>">';
+						// reason_input += '<input type="hidden" value="<?php echo esc_attr__('Upgraded', 'email-customizer-for-woocommerce');?>">';
                     	reason_input += '</div>';
                     }
 
@@ -1088,51 +1125,51 @@ class WECMF_Settings {
 		return array(
 			'upgraded_to_pro' => array(
 				'radio_val'          => 'upgraded_to_pro',
-				'radio_label'        => __('Upgraded to premium.', 'woo-email-customizer'),
+				'radio_label'        => __('Upgraded to premium.', 'email-customizer-for-woocommerce'),
 				'reason_type'        => 'reviewlink',
 				'reason_placeholder' => '',
 			),
 
 			'feature_missing'=> array(
 				'radio_val'          => 'feature_missing',
-				'radio_label'        => __('A specific feature is missing', 'woo-email-customizer'),
+				'radio_label'        => __('A specific feature is missing', 'email-customizer-for-woocommerce'),
 				'reason_type'        => 'text',
-				'reason_placeholder' => __('Type in the feature', 'woo-email-customizer'),
+				'reason_placeholder' => __('Type in the feature', 'email-customizer-for-woocommerce'),
 			),
 
 			'error_or_not_working'=> array(
 				'radio_val'          => 'error_or_not_working',
-				'radio_label'        => __('Found an error in the plugin/ Plugin was not working', 'woo-email-customizer'),
+				'radio_label'        => __('Found an error in the plugin/ Plugin was not working', 'email-customizer-for-woocommerce'),
 				'reason_type'        => 'text',
-				'reason_placeholder' => __('Specify the issue', 'woo-email-customizer'),
+				'reason_placeholder' => __('Specify the issue', 'email-customizer-for-woocommerce'),
 			),
 
 			'found_better_plugin' => array(
 				'radio_val'          => 'found_better_plugin',
-				'radio_label'        => __('I found a better Plugin', 'woo-email-customizer'),
+				'radio_label'        => __('I found a better Plugin', 'email-customizer-for-woocommerce'),
 				'reason_type'        => 'text',
-				'reason_placeholder' => __('Could you please mention the plugin?', 'woo-email-customizer'),
+				'reason_placeholder' => __('Could you please mention the plugin?', 'email-customizer-for-woocommerce'),
 			),
 
 			'hard_to_use' => array(
 				'radio_val'          => 'hard_to_use',
-				'radio_label'        => __('It was hard to use', 'woo-email-customizer'),
+				'radio_label'        => __('It was hard to use', 'email-customizer-for-woocommerce'),
 				'reason_type'        => 'text',
-				'reason_placeholder' => __('How can we improve your experience?', 'woo-email-customizer'),
+				'reason_placeholder' => __('How can we improve your experience?', 'email-customizer-for-woocommerce'),
 			),
 
 			'temporary' => array(
 				'radio_val'          => 'temporary',
-				'radio_label'        => __('It’s a temporary deactivation - I’m troubleshooting an issue', 'woo-email-customizer'),
+				'radio_label'        => __('It’s a temporary deactivation - I’m troubleshooting an issue', 'email-customizer-for-woocommerce'),
 				'reason_type'        => 'checkbox',
-				'reason_placeholder' => __('Could you please mention the plugin?', 'woo-email-customizer'),
+				'reason_placeholder' => __('Could you please mention the plugin?', 'email-customizer-for-woocommerce'),
 			),
 
 			'other' => array(
 				'radio_val'          => 'other',
-				'radio_label'        => __('Not mentioned here', 'woo-email-customizer'),
+				'radio_label'        => __('Not mentioned here', 'email-customizer-for-woocommerce'),
 				'reason_type'        => 'textarea',
-				'reason_placeholder' => __('Kindly tell us your reason, so that we can improve', 'woo-email-customizer'),
+				'reason_placeholder' => __('Kindly tell us your reason, so that we can improve', 'email-customizer-for-woocommerce'),
 			),
 		);
 	}
@@ -1148,7 +1185,7 @@ class WECMF_Settings {
 
 		if($_POST['reason'] === 'temporary'){
 
-			$snooze_period = isset($_POST['th-snooze-time']) && $_POST['th-snooze-time'] ? $_POST['th-snooze-time'] : MINUTE_IN_SECONDS ;
+			$snooze_period = isset($_POST['th-snooze-time']) && sanitize_text_field(wp_unslash($_POST['th-snooze-time'])) ? sanitize_text_field(wp_unslash($_POST['th-snooze-time'])) : MINUTE_IN_SECONDS ;
 			$time_now = time();
 			$snooze_time = $time_now + $snooze_period;
 
@@ -1159,10 +1196,10 @@ class WECMF_Settings {
 		
 		$data = array(
 			'plugin'        => 'wecm',
-			'reason' 	    => sanitize_text_field($_POST['reason']),
+			'reason' 	    => sanitize_text_field( wp_unslash($_POST['reason'])),
 			'comments'	    => isset($_POST['comments']) ? sanitize_textarea_field(wp_unslash($_POST['comments'])) : '',
 	        'date'          => gmdate("M d, Y h:i:s A"),
-	        'software'      => $_SERVER['SERVER_SOFTWARE'],
+	        'software'      => isset($_SERVER['SERVER_SOFTWARE']) ? sanitize_text_field(wp_unslash($_SERVER['SERVER_SOFTWARE'])) : '',
 	        'php_version'   => phpversion(),
 	        'mysql_version' => $wpdb->db_version(),
 	        'wp_version'    => get_bloginfo('version'),

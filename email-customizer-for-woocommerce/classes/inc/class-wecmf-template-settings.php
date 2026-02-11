@@ -64,23 +64,25 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
 		}
 		return self::$_instance;
 	}
+
 	
 	public function init_constants(){
-			
+
 		$this->template_status =array(
 			'0'=>'admin-new-order',
 			'1'=>'admin-cancelled-order',
-			'2'=>'admin-failed-order',
-			'3'=>'customer-failed-order',
-			'4'=>'customer-completed-order',
-			'5'=>'customer-on-hold-order',
-			'6'=>'customer-processing-order',
-			'7'=>'customer-refunded-order',
-			'8'=>'customer-partially-refunded-order',
-			'9'=>'customer-invoice',
-			'10'=>'customer-note',
-			'11'=>'customer-reset-password',
-			'12'=>'customer-new-account',
+			'2'=>'customer-cancelled-order',
+			'3'=>'admin-failed-order',
+			'4'=>'customer-failed-order',
+			'5'=>'customer-completed-order',
+			'6'=>'customer-on-hold-order',
+			'7'=>'customer-processing-order',
+			'8'=>'customer-refunded-order',
+			'9'=>'customer-partially-refunded-order',
+			'10'=>'customer-invoice',
+			'11'=>'customer-note',
+			'12'=>'customer-reset-password',
+			'13'=>'customer-new-account',
 		);
 		$this->map_msgs = array(
 			true	=> array(
@@ -129,13 +131,21 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
      *
 	 * @return  string $settings settings to be saved
      */
-	private function prepare_settings(){
+	private function prepare_settings( $template_list=array() ){
 		$settings = WECMF_Utils::thwecmf_get_template_settings();
 		$template_map = isset( $settings[WECMF_Utils::SETTINGS_KEY_TEMPLATE_MAP] ) ? $settings[WECMF_Utils::SETTINGS_KEY_TEMPLATE_MAP] : array();
 		$file_ext = 'php';
-		foreach ($_POST['i_template-list'] as $key => $value) {
-			$template_map[$this->template_status[sanitize_text_field( $key )]] = sanitize_text_field($value);
-		}
+		if (is_array( $template_list ) && !empty( $template_list )) {
+			// return $settings;
+			// $template_list = wp_unslash( $_POST['i_template-list'] );
+			foreach ($template_list as $key => $value) {
+				$sanitized_key = sanitize_text_field( $key );
+            	$sanitized_value = sanitize_text_field( $value );
+				if ( isset( $this->template_status[ $sanitized_key ] ) ) {
+                	$template_map[ $this->template_status[ $sanitized_key ] ] = $sanitized_value;
+            }
+        }
+    }	
 		$settings[WECMF_Utils::SETTINGS_KEY_TEMPLATE_MAP] = $template_map;
 		return $settings;
 	}
@@ -147,11 +157,13 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
      */
 	private function save_settings(){
 		$result = false;
-		if( !isset($_POST['i_template-list']) || !isset( $_POST['thwecmf_template_map'] ) || !wp_verify_nonce( $_POST['thwecmf_template_map'], 'template_map_action' ) || !WECMF_Utils::is_user_capable() ){
+		if( !isset($_POST['i_template-list']) || !isset( $_POST['thwecmf_template_map'] ) || !wp_verify_nonce(sanitize_text_field( wp_unslash( $_POST['thwecmf_template_map'] ) ), 'template_map_action' ) || !WECMF_Utils::is_user_capable() ){
 			wp_die( '<div class="wecm-wp-die-message">Action failed. Could not verify nonce.</div>' );
 		}
 		$temp_data = array();
-   		$settings = $this->prepare_settings();
+		// $template_list = isset( $_POST['i_template-list'] ) ?  wp_unslash( $_POST['i_template-list'] )   : array();
+		$template_list = isset( $_POST['i_template-list'] ) ? array_map( 'sanitize_text_field', wp_unslash( $_POST['i_template-list'] ) ) : array();
+   		$settings = $this->prepare_settings($template_list);
    		$result = WECMF_Utils::thwecmf_save_template_settings($settings);
 		return $result;
 	}
@@ -181,9 +193,11 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
 	private function reset_template(){
 		$result = false;
 		$file_reset = false;
-		$template = isset( $_POST['i_template_name'] ) ? sanitize_text_field( $_POST['i_template_name'] ) : false;
+		$template = isset( $_POST['i_template_name'] ) ? sanitize_text_field(wp_unslash( $_POST['i_template_name'] ) ) : false;
 		if( $template ){
-			if( !wp_verify_nonce( $_POST['thwecmf_edit_template_'.$template], 'thwecmf_edit_template' ) || !WECMF_Utils::is_user_capable() ){
+			$nonce_key = 'thwecmf_edit_template_' . $template;
+			if (! isset( $_POST[ $nonce_key ] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST[ $nonce_key ] ) ), 'thwecmf_edit_template' ) || ! WECMF_Utils::is_user_capable()) 
+			{
 				wp_die( '<div class="wecm-wp-die-message">Action failed. Could not verify nonce.</div>' );
 			}
 			$result = WECMF_Utils::thwecmf_reset_templates( $template );
@@ -204,7 +218,7 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
 	private function reset_settings(){
 		$result = false;
 
-		if( !isset( $_POST['thwecmf_template_map'] ) || !wp_verify_nonce( $_POST['thwecmf_template_map'], 'template_map_action' ) || !WECMF_Utils::is_user_capable() ){
+		if( !isset( $_POST['thwecmf_template_map'] ) || !wp_verify_nonce(sanitize_text_field( wp_unslash( $_POST['thwecmf_template_map'] ) ), 'template_map_action' ) || !WECMF_Utils::is_user_capable() ){
 			wp_die( '<div class="wecm-wp-die-message">Action failed. Could not verify nonce.</div>' );
 		}else{
 			$result = $this->reset_to_default();
@@ -268,9 +282,10 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
 					foreach (WECMF_Utils::email_statuses() as $key => $label) {
 						$key = str_replace('-', '_', $key);
 						$url = $key === "customer_partially_refunded_order" ? "customer_refunded_order" : $key;
+						$url = $key === "customer_cancelled_order" ? "admin_cancelled_order" : $url;
 						?>
 		    			<div class="thwecmf-template-box">
-		    				<form name="thwecmf_edit_template_form_<?php echo $key; ?>" action="" method="POST">
+		    				<form name="thwecmf_edit_template_form_<?php echo esc_attr( $key ); ?>" action="" method="POST">
 		    					<?php
 		    					if ( function_exists('wp_nonce_field') ){
 									wp_nonce_field( 'thwecmf_edit_template', 'thwecmf_edit_template_'.$key );
@@ -286,10 +301,10 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
 		    					<div class="template-manage-menu">
 		    						<div class="template-manage-menu-item">
 		    							<button type="submit" class="thwecmf-template-action-links" formaction="<?php $this->get_admin_url(); ?>" name="i_edit_template">
-		    								<img src="<?php echo TH_WECMF_ASSETS_URL ?>images/template-edit.svg" class="template-edit-icon">
+		    								<img src="<?php echo esc_url( TH_WECMF_ASSETS_URL . "images/template-edit.svg" ); ?>" class="template-edit-icon">
 		    							</button>
 		    							<button type="submit" class="thwecmf-template-action-links thwecmf-reset-link" name="reset_template" onclick="return confirm('Template will be reset to initial condition. Do you want to proceed ?');">
-				    						<img src="<?php echo TH_WECMF_ASSETS_URL ?>images/template-reset.svg">
+				    						<img src="<?php echo esc_url( TH_WECMF_ASSETS_URL . "images/template-reset.svg" ); ?>" class="template-reset-icon">
 										</button>
 									</div>
 		    					</div>
@@ -305,14 +320,15 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
 	public function render_notifications(){
 		$result = "load";
 		$action = "";
+		//phpcs:ignore WordPress.Security.NonceVerification.Missing
 		if( isset( $_POST['save_settings'] ) ){
 			$result = $this->save_settings();
 			$action = "save";
-		
+		//phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}else if( isset( $_POST['reset_settings'] ) ){
 			$result = $this->reset_settings();
 			$action = "reset";
-
+		//phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}else if( isset( $_POST['reset_template'] ) ){
 			$result = $this->reset_template();
 		}
@@ -332,11 +348,11 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
 		}
 		?>
 		<div id="thwecmf_validations" class="thwecmf-template-validation">
-			<div class="validation-wrapper thwecmf-<?php echo $result; ?>">
-        		<span class="dashicons <?php echo $icons; ?>"></span>
+			<div class="validation-wrapper thwecmf-<?php echo esc_attr( $result ); ?>">
+        		<span class="dashicons <?php echo esc_attr( $icons ); ?>"></span>
 		        <div class="validation-messages">
-		            <p class="thwecmf-label"><?php echo $result; ?></p>
-		            <p class="thwecmf-label-light"><?php echo $message; ?></p>
+		            <p class="thwecmf-label"><?php echo esc_attr( $result ); ?></p>
+		            <p class="thwecmf-label-light"><?php echo esc_html( $message ); ?></p>
 		        </div>
 		    </div>
         </div>
@@ -354,7 +370,11 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
 			<h1 class="thwecmf-main-heading"><?php echo $page === "thwecmf_email_mapping" ? "Email Mapping" : "Templates";?></h1>
 			<?php if( $page === "thwecmf_email_customizer" ){
 
-				echo '<a class="btn thwecmf-view-premium" href="'.esc_url( $this->get_admin_url("premium") ).'"><image src="'.TH_WECMF_ASSETS_URL.'images/premium.svg">Premium</a>';
+				echo '<a class="btn thwecmf-view-premium" href="' . esc_url( $this->get_admin_url( 'premium' ) ) . '">
+					<img src="' . esc_url( TH_WECMF_ASSETS_URL . 'images/premium.svg' ) . '" alt="' . esc_attr__( 'Premium', 'email-customizer-for-woocommerce' ) . '">
+					' . esc_html__( 'Premium', 'email-customizer-for-woocommerce' ) . '
+				</a>';
+
 			} ?>
 		</div>
 		<?php
@@ -409,13 +429,13 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
 		$date = $this->get_template_created_date( $template );
 		?>
 		<td class="thwecmf-mapping-column-template">
-			<input type="hidden" name="i_email-id[]" value="<?php echo $key; ?>">
+			<input type="hidden" name="i_email-id[]" value="<?php echo esc_attr( $key ); ?>">
 			<div class="thwecmf-template-information">
 				<div class="thwecmf-template-icon thwecmf-inline thwecmf-template-info">
-					<img src="<?php echo $url; ?>">
+					<img src="<?php echo esc_url( $url ); ?>">
 				</div>
 				<div class="thwecmf-template-label thwecmf-inline thwecmf-template-info">
-					<div class="thwecmf-label"><?php echo $template; ?></div>
+					<div class="thwecmf-label"><?php echo esc_html( $template ); ?></div>
 				</div>
 			</div>
 		</td>
@@ -446,10 +466,10 @@ class WECMF_Template_Settings extends WECMF_Builder_Settings {
 		$class = isset( $field['class'] ) ? $field['class'] : '';
 		$template = isset( $this->template_map[$email] ) ? $this->template_map[$email] : "";
 
-		echo '<select name="i_'.$name.'" class="'.$class.'">';
+		echo '<select name="i_'. esc_attr($name).'" class="'. esc_attr($class).'">';
 		foreach ($options as $key => $value) {
 			$selected = $template === $key ? "selected" : "";
-			echo '<option value="'.$key.'" '.$selected.'>'.$value.'</option>';
+			echo '<option value="'.esc_attr($key).'" '.esc_attr($selected).'>'. esc_attr($value).'</option>';
 		}
 		echo '</select>';
 	}

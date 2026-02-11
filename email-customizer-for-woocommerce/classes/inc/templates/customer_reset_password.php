@@ -1,3 +1,8 @@
+<?php
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html>
 <head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>
@@ -29,7 +34,7 @@
 </div>
 <div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;"><br style="color: #636363; font-size: 14px;"></div>
 <div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;"><?php if(isset($reset_key) && isset($user_id)): ?><a class="link thwec-link" href="<?php echo esc_url( add_query_arg( array( 'key' => $reset_key, 'id' => $user_id ), wc_get_endpoint_url( 'lost-password', '', wc_get_page_permalink( 'myaccount' ) ) ) ); ?>">
-			<?php _e( 'Click here to reset your password', 'woocommerce' ); ?></a><?php endif; ?><br style="color: #636363; font-size: 14px;">
+			<?php esc_html_e( 'Click here to reset your password', 'email-customizer-for-woocommerce' ); ?></a><?php endif; ?><br style="color: #636363; font-size: 14px;">
 </div>
 <div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;"><br style="color: #636363; font-size: 14px;"></div>
 <div class="wecmf-txt-wrap" style="color: #636363; font-size: 14px;">Thanks for reading.<br style="color: #636363; font-size: 14px;">
