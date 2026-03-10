@@ -91,6 +91,17 @@ class WECMF_Settings {
 
 	public function render_preview( $content ){	
 		$allowed_html = WECMF_Utils::get_email_allowed_html();
+		// Allow 'display' CSS property through wp_kses so that
+		// 'display: inline-block' on image wrapper <p> tags is preserved.
+		// Without this, image alignment (text-align) breaks in preview.
+		$safe_display_css = function( $styles ) {
+			if ( ! in_array( 'display', $styles, true ) ) {
+				$styles[] = 'display';
+			}
+			return $styles;
+		};
+		add_filter( 'safe_style_css', $safe_display_css );
+
 		?>
 		<html>
 			<head>
@@ -105,6 +116,8 @@ class WECMF_Settings {
 			<body>
 				<!-- added wp_kses because of security -->
 				 <?php echo wp_kses( $content, $allowed_html ); ?>
+				 <?php remove_filter( 'safe_style_css', $safe_display_css ); ?>
+				 <!-- edit here -->
 				<script>
 					var links = document.getElementsByClassName('thwecmf-link');
 					var email = '';
@@ -237,17 +250,31 @@ class WECMF_Settings {
 			return $template;
 		}
 		$template_id = isset($args['email']) && isset($args['email']->id) && !empty($args['email']->id) ? $args['email']->id : false;
+		
+		// No email context (thank you page, etc.) - skip entirely
+		if(!$template_id) {
+			return $template;
+		}
+		
 		$template_key = str_replace('_', '-', $template_id);
 		$template_key = in_array($template_id, $this->admin_emails) ? 'admin-'.$template_key : $template_key;
-		if( is_array( $this->template_map ) && array_key_exists($template_key, $this->template_map) ){
-			$template_key = $this->template_map[$template_key];
-			$email_template = $this->get_email_template($template_key);
+		
+		if( is_array( $this->template_map ) && array_key_exists($template_key, $this->template_map) && !empty($this->template_map[$template_key]) ){
+			$mapped_value = $this->template_map[$template_key];
+			$email_template = $this->get_email_template($mapped_value);
 			if( $email_template ){
+				//  Mapped email - swap to custom hooks
+				WECMF_Utils::manage_woocommerce_hooks($args['email']);
 				return $email_template;
 			}
 		}
+		
+		//  NOT mapped - restore WooCommerce defaults (in case a previous mapped email swapped them)
+		WECMF_Utils::restore_woocommerce_hooks($args['email']);
+		
 		return $template;
 	}
+
 
 	public function thwecmf_woocommerce_email_styles($buffer){
 		$styles = WECMF_Utils::get_thwecmf_styles();
@@ -438,8 +465,14 @@ class WECMF_Settings {
 				if( $wc_key === "WC_Email_Customer_Refunded_Order" ){
 					$woo_emails["WC_Email_Customer_Partially_Refunded_Order"] = "Refunded order (Partial)";
 				}
+				if( $wc_key === "WC_Email_Failed_Order"){
+					$woo_emails["WC_Email_Failed_Order"] = "Admin failed order";
+				}
 				if( $wc_key === "WC_Email_Customer_Failed_Order" ){
 					$woo_emails["WC_Email_Customer_Failed_Order"] = "Customer failed order";
+				}
+				if( $wc_key === "WC_Email_Cancelled_Order" ){
+					$woo_emails["WC_Email_Cancelled_Order"] = "Admin cancelled order ";
 				}
 				if( $wc_key === "WC_Email_Customer_Cancelled_Order" ){
 					$woo_emails["WC_Email_Customer_Cancelled_Order"] = "Customer cancelled order";
@@ -545,6 +578,9 @@ class WECMF_Settings {
         }
 
 		$current_screen = get_current_screen();
+		if ( ! isset( $current_screen->id ) || ! in_array( $current_screen->id, $this->plugin_pages, true ) ) {
+			return;
+		}
 		
 		$thwecmf_reviewed = get_user_meta( get_current_user_id(), 'thwecmf_reviewed', true );
 		if($thwecmf_reviewed){

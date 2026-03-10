@@ -3,7 +3,7 @@
  * Plugin Name: Email Customizer for WooCommerce
  * Description: Customize your WooCommerce emails using the drag and drop builder to match your brand style.
  * Author:      ThemeHigh
- * Version:     2.6.8
+ * Version:     2.6.9
  * Author URI:  https://www.themehigh.com
  * Plugin URI:  https://www.themehigh.com/product/woocommerce-email-customizer
  * Text Domain: email-customizer-for-woocommerce
@@ -12,7 +12,7 @@
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Requires Plugins: woocommerce
  * WC requires at least: 4.0.0
- * WC tested up to: 10.5
+ * WC tested up to: 10.6
  */
  
 if(!defined('ABSPATH')){ exit; }
@@ -62,7 +62,7 @@ if(is_woocommerce_active()) {
 			public function init() {		
 				// $this->load_plugin_textdomain();
 				
-				define('TH_WECMF_VERSION', '2.6.8');
+				define('TH_WECMF_VERSION', '2.6.9');
 				!defined('TH_WECMF_BASE_NAME') && define('TH_WECMF_BASE_NAME', plugin_basename( __FILE__ ));
 				!defined('TH_WECMF_PATH') && define('TH_WECMF_PATH', plugin_dir_path( __FILE__ ));
 				!defined('TH_WECMF_URL') && define('TH_WECMF_URL', plugins_url( '/', __FILE__ ));

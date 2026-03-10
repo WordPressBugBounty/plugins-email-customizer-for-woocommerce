@@ -233,8 +233,7 @@ class WECMF_General_Template{
 				$render_data = isset($_POST['contents']) ? wp_kses(  wp_unslash( $_POST['contents']  ), WECMF_Utils::get_email_allowed_html() ) : false;
 				$render_css = isset($_POST['styles']) ? wp_strip_all_tags( wp_unslash( $_POST['styles'] ) ) : '';
 				$render_css = $this->php8_comaptibiltiy_css( $render_css );
-				// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- JSON decoded and sanitized via sanitize_template_recursive()
-				$raw_data = isset($_POST['template_tree']) ? sanitize_text_field (wp_unslash($_POST['template_tree'])) : '';
+				$raw_data = isset($_POST['template_tree']) ? sanitize_text_field(wp_unslash($_POST['template_tree'])) : '';
 				$decoded = json_decode($raw_data, true);
 				if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
 					wp_send_json_error('Invalid template data');
@@ -1341,6 +1340,8 @@ class WECMF_General_Template{
 	  			$emails = WC_Emails::instance();
 	  			$email_class = $this->get_email_class( $emails, $email_index );
 				$email_class_id = $email_index === "WC_Email_Customer_Partial_Refunded_Order" ? "customer_partially_refunded_order" : $email_class->id;
+				// Manage WooCommerce email hooks to use custom header/footer
+				WECMF_Utils::manage_woocommerce_hooks( $email_class );
 				add_filter( 'woocommerce_email_recipient_' . $email_class_id, array( $this, 'no_recipient' ) );
 				if( in_array( $email_index, $account_emails ) ){
 					//Account related email

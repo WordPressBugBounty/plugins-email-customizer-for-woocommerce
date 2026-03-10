@@ -5,7 +5,7 @@ Tags: Email Customizer, WooCommerce Email Customizer, woocommerce emails, Email 
 Requires at least: 4.9
 Tested up to: 6.9
 Requires PHP: 5.6
-Stable tag: 2.6.8
+Stable tag: 2.6.9
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -222,6 +222,10 @@ Yes, you can edit all the templates provided in the Email Customizer plugin. For
 11. Send out test emails to confirm Email Layouts.
 
 == Changelog ==
+
+= 2.6.9 =
+* Improved builder rendering to enhance stability and security.
+* Added WooCommerce 10.6 compatibility.
 
 = 2.6.8 = 
 * Fixed broken Test Email functionality in WooCommerce 10.4.
