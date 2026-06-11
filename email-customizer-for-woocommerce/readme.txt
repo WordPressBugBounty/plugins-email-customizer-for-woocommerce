@@ -3,9 +3,9 @@ Contributors: ThemeHigh
 Donate link: https://themehigh.com/
 Tags: Email Customizer, WooCommerce Email Customizer, woocommerce emails, Email Template, Email Designer
 Requires at least: 4.9
-Tested up to: 6.9
+Tested up to: 7.0
 Requires PHP: 5.6
-Stable tag: 2.6.9
+Stable tag: 2.7.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -222,6 +222,10 @@ Yes, you can edit all the templates provided in the Email Customizer plugin. For
 11. Send out test emails to confirm Email Layouts.
 
 == Changelog ==
+
+= 2.7.0 =
+* Added Woocommerce 10.8 compatibility.
+* Added WordPress 7.0 compatibility.
 
 = 2.6.9 =
 * Improved builder rendering to enhance stability and security.
